@@ -1,4 +1,4 @@
-package your.name.here;
+package alejandro.salazar.mejia;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

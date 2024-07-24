@@ -1,4 +1,4 @@
-package your.name.here;
+package alejandro.salazar.mejia;
 
 import java.util.List;
 
@@ -11,11 +11,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import your.name.here.domain.Action;
-import your.name.here.domain.Aggregate;
-import your.name.here.domain.AggregatesQueryResult;
-import your.name.here.domain.UserProfileResult;
-import your.name.here.domain.UserTagEvent;
+import alejandro.salazar.mejia.domain.Action;
+import alejandro.salazar.mejia.domain.Aggregate;
+import alejandro.salazar.mejia.domain.AggregatesQueryResult;
+import alejandro.salazar.mejia.domain.UserProfileResult;
+import alejandro.salazar.mejia.domain.UserTagEvent;
 
 @RestController
 public class EchoClient {

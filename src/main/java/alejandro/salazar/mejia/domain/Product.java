@@ -15,6 +15,13 @@ public class Product {
     public Product() {
     }
 
+    public Product(int productId, String brandId, String categoryId, int price) {
+        this.productId = productId;
+        this.brandId = brandId;
+        this.categoryId = categoryId;
+        this.price = price;
+    }
+
     public int getProductId() {
         return productId;
     }

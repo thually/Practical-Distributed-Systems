@@ -88,4 +88,17 @@ public class UserTagEvent {
     public void setProductInfo(Product productInfo) {
         this.productInfo = productInfo;
     }
+
+    @Override
+    public String toString() {
+        return "UserTagEvent{" +
+                "time=" + time +
+                ", cookie='" + cookie + '\'' +
+                ", country='" + country + '\'' +
+                ", device=" + device +
+                ", action=" + action +
+                ", origin='" + origin + '\'' +
+                ", productInfo=" + productInfo +
+                '}';
+    }
 }

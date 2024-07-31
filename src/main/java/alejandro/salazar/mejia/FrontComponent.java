@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import alejandro.salazar.mejia.dao.UserDao;
 import alejandro.salazar.mejia.domain.Action;
 import alejandro.salazar.mejia.domain.Aggregate;
 import alejandro.salazar.mejia.domain.AggregatesQueryResult;
@@ -18,12 +20,23 @@ import alejandro.salazar.mejia.domain.UserProfileResult;
 import alejandro.salazar.mejia.domain.UserTagEvent;
 
 @RestController
-public class EchoClient {
+public class FrontComponent {
 
-    private static final Logger log = LoggerFactory.getLogger(EchoClient.class);
+    @Autowired
+    private UserDao userDao;
+
+    private static final Logger log = LoggerFactory.getLogger(FrontComponent.class);
 
     @PostMapping("/user_tags")
     public ResponseEntity<Void> addUserTag(@RequestBody(required = false) UserTagEvent userTag) {
+
+        try {
+            userDao.addUserTag(userTag);
+        } catch (Exception e) {
+            // server error
+            log.error("Error while adding user tag event: {}", userTag, e);
+            return ResponseEntity.internalServerError().build();
+        }
 
         return ResponseEntity.noContent().build();
     }
@@ -33,6 +46,14 @@ public class EchoClient {
             @RequestParam("time_range") String timeRangeStr,
             @RequestParam(defaultValue = "200") int limit,
             @RequestBody(required = false) UserProfileResult expectedResult) {
+
+        try {
+            userDao.getUserProfile(cookie, timeRangeStr, limit, expectedResult);
+        } catch (Exception e) {
+            // server error
+            log.error("Error while getting user profile for cookie: {}", cookie, e);
+            return ResponseEntity.internalServerError().build();
+        }
 
         return ResponseEntity.ok(expectedResult);
     }

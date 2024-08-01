@@ -36,7 +36,27 @@ public class MyClassTest {
 
 
     public static void main(String[] args) throws Exception {
-        System.out.println("This is a main method in the test folder.");
+        
+        test2();
+
+    }
+
+    public static void test2() {
+
+        // help me test insertInt
+        List<Integer> integers = new ArrayList<>();
+        // insert 250 integers
+        for (int i = 0; i < 250; i++) {
+            insertInt(integers, i);
+        }
+        System.out.println("After inserting 250 integers: ");
+        System.out.println(integers);
+        System.out.println(integers.size());
+        
+    }
+
+    private static void test1() throws Exception {
+        System.out.println("This is test1 method in the test folder.");
 
         String[] aerospikeSeeds = {"st112vm106.rtb-lab.pl", "st112vm107.rtb-lab.pl"};
         int port = 3000;
@@ -103,8 +123,6 @@ public class MyClassTest {
         System.out.println("After aerospike: ");
         System.out.println("View events: " + viewEventsRead);
         System.out.println("Buy events: " + buyEventsRead);
-
-
     }
 
     private static List<UserTagEvent> parseEvents(Object compressedData) throws Exception {
@@ -120,6 +138,14 @@ public class MyClassTest {
         events.sort(Comparator.comparing(UserTagEvent::getTime).reversed());
         if (events.size() > MAX_EVENTS) {
             events.subList(MAX_EVENTS, events.size()).clear();
+        }
+    }
+
+    private static void insertInt(List<Integer> integers, int integer) {
+        integers.add(integer);
+        integers.sort(Comparator.comparing(Integer::intValue).reversed());
+        if (integers.size() > MAX_EVENTS) {
+            integers.subList(MAX_EVENTS, integers.size()).clear();
         }
     }
 

@@ -1,18 +1,15 @@
 package alejandro.salazar.mejia.dao;
 
-import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.xml.validation.Schema;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -27,9 +24,6 @@ import com.aerospike.client.policy.Policy;
 import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.Replica;
 import com.aerospike.client.policy.WritePolicy;
-import com.aerospike.client.query.ResultSet;
-import com.aerospike.client.query.Statement;
-import com.aerospike.client.task.RegisterTask;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -104,7 +98,7 @@ public class UserDao {
         }
         
         
-        log.info("\nAdding user tag event: {} \n", userTagEvent);
+        // log.info("\nAdding user tag event: {} \n", userTagEvent);
 
         // Convert lists to JSON, compress and save in Aerospike
         byte[] compressedViewEventsJson = compressEvents(viewEvents);
@@ -118,7 +112,46 @@ public class UserDao {
     }
 
     public UserProfileResult getUserProfile(String cookie, String timeRangeStr, int limit, UserProfileResult expectedResult) throws Exception {
-        return null;
+        // Parse the time range
+        String[] timeRange = timeRangeStr.split("_");
+        Instant startTime = Instant.parse(timeRange[0] + "Z");
+        Instant endTime = Instant.parse(timeRange[1] + "Z");
+
+        // Retrieve the user record
+        Key key = new Key(NAMESPACE, SET, cookie);
+        Policy readPolicy = new Policy(client.readPolicyDefault);
+        Record record = client.get(readPolicy, key);
+
+        if (record == null) {
+            return new UserProfileResult(cookie, new ArrayList<>(), new ArrayList<>());
+        }
+
+        // Decompress and parse events
+        List<UserTagEvent> viewEvents = parseEvents(record.getValue(VIEW_BIN));
+        List<UserTagEvent> buyEvents = parseEvents(record.getValue(BUY_BIN));
+
+        // Filter and limit events
+        List<UserTagEvent> filteredViews = filterAndLimitEvents(viewEvents, startTime, endTime, limit);
+        List<UserTagEvent> filteredBuys = filterAndLimitEvents(buyEvents, startTime, endTime, limit);
+        
+        UserProfileResult result = new UserProfileResult(cookie, filteredViews, filteredBuys);
+
+        // TODO: Remove this
+        if (!expectedResult.toString().equals(result.toString())) {
+            log.error("Different results for cookie: {}, time range: {}, limit: {}", cookie, timeRangeStr, limit);
+            log.info("Expected result: \t{}", expectedResult);
+            log.info("Actual result: \t{}\n", result);
+        }
+        
+
+        return result;
+    }
+
+    private static List<UserTagEvent> filterAndLimitEvents(List<UserTagEvent> events, Instant startTime, Instant endTime, int limit) {
+        return events.stream()
+                .filter(event -> !event.getTime().isBefore(startTime) && event.getTime().isBefore(endTime))
+                .limit(limit)
+                .collect(Collectors.toList());
     }
 
     private static List<UserTagEvent> parseEvents(Object compressedData) throws Exception {

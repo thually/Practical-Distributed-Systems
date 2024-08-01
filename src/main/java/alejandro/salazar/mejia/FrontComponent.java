@@ -48,14 +48,14 @@ public class FrontComponent {
             @RequestBody(required = false) UserProfileResult expectedResult) {
 
         try {
-            userDao.getUserProfile(cookie, timeRangeStr, limit, expectedResult);
+            UserProfileResult result = userDao.getUserProfile(cookie, timeRangeStr, limit, expectedResult);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             // server error
             log.error("Error while getting user profile for cookie: {}", cookie, e);
             return ResponseEntity.internalServerError().build();
         }
 
-        return ResponseEntity.ok(expectedResult);
     }
 
     @PostMapping("/aggregates")

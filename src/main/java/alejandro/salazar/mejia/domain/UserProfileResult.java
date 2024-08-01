@@ -2,6 +2,7 @@ package alejandro.salazar.mejia.domain;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class UserProfileResult {
 
@@ -40,5 +41,18 @@ public class UserProfileResult {
 
     public void setBuys(List<UserTagEvent> buys) {
         this.buys = buys;
+    }
+
+    @Override
+    public String toString() {
+        String viewsStr = views.stream()
+                .map(event -> String.format("(%s, %s, %d)", event.getTime(), event.getAction(), event.getProductInfo().getProductId()))
+                .collect(Collectors.joining(", "));
+
+        String buysStr = buys.stream()
+                .map(event -> String.format("(%s, %s, %d)", event.getTime(), event.getAction(), event.getProductInfo().getProductId()))
+                .collect(Collectors.joining(", "));
+
+        return String.format("UserProfileResult{cookie='%s', views=[%s], buys=[%s]}", cookie, viewsStr, buysStr);
     }
 }

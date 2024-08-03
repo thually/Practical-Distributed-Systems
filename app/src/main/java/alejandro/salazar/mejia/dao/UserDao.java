@@ -14,6 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import com.aerospike.client.AerospikeClient;
+import com.aerospike.client.AerospikeException;
+import com.aerospike.client.ResultCode;
 import com.aerospike.client.Bin;
 import com.aerospike.client.Host;
 import com.aerospike.client.Key;
@@ -24,6 +26,7 @@ import com.aerospike.client.policy.Policy;
 import com.aerospike.client.policy.RecordExistsAction;
 import com.aerospike.client.policy.Replica;
 import com.aerospike.client.policy.WritePolicy;
+import com.aerospike.client.policy.GenerationPolicy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -60,7 +63,6 @@ public class UserDao {
         defaultClientPolicy.writePolicyDefault.totalTimeout = 15000;
         defaultClientPolicy.writePolicyDefault.maxRetries = 1;
         defaultClientPolicy.writePolicyDefault.commitLevel = CommitLevel.COMMIT_MASTER;
-        defaultClientPolicy.writePolicyDefault.recordExistsAction = RecordExistsAction.REPLACE;
         return defaultClientPolicy;
     }
 
@@ -74,40 +76,70 @@ public class UserDao {
         // Cookie is the unique identifier for the user
         Key key = new Key(NAMESPACE, SET, userTagEvent.getCookie());
         Policy readPolicy = new Policy(client.readPolicyDefault);
-        Record record = client.get(readPolicy, key);
+        WritePolicy writePolicy = new WritePolicy(client.writePolicyDefault);
 
-        List<UserTagEvent> viewEvents;
-        List<UserTagEvent> buyEvents;
+        // Optimistic concurrency control
+        while (true) {
+            Record record = client.get(readPolicy, key);
+            List<UserTagEvent> viewEvents;
+            List<UserTagEvent> buyEvents;
+            
 
-        if (record == null) {
-            // No existing record, create new lists
-            viewEvents = new ArrayList<>();
-            buyEvents = new ArrayList<>();
-        } else {
-            // Existing record, decompress and parse JSON
-            viewEvents = parseEvents(record.getValue(VIEW_BIN));
-            buyEvents = parseEvents(record.getValue(BUY_BIN));
+            if (record == null) {
+                // No existing record, create new lists
+                viewEvents = new ArrayList<>();
+                buyEvents = new ArrayList<>();
+
+                // Set the write policy to create only if the record does not exist
+                writePolicy.recordExistsAction = RecordExistsAction.CREATE_ONLY;
+
+            } else {
+                // Existing record, decompress and parse JSON
+                viewEvents = parseEvents(record.getValue(VIEW_BIN));
+                buyEvents = parseEvents(record.getValue(BUY_BIN));
+
+                // Set the write policy to replace the record
+                writePolicy.recordExistsAction = RecordExistsAction.REPLACE;
+
+                // Set the generation policy and expected generation
+                writePolicy.generationPolicy = GenerationPolicy.EXPECT_GEN_EQUAL;
+                writePolicy.generation = record.generation;
+
+            }
+
+            // Add the new event to the appropriate list. Only keep the most recent MAX_EVENTS events.
+            if (userTagEvent.getAction() == Action.VIEW) {
+                insertEvent(viewEvents, userTagEvent);
+            } else {
+                insertEvent(buyEvents, userTagEvent);
+            }
+
+
+            // log.info("\nAdding user tag event: {} \n", userTagEvent);
+    
+            // Convert lists to JSON and compress
+            byte[] compressedViewEventsJson = compressEvents(viewEvents);
+            byte[] compressedBuyEventsJson = compressEvents(buyEvents);
+    
+            Bin viewBin = new Bin(VIEW_BIN, compressedViewEventsJson);
+            Bin buyBin = new Bin(BUY_BIN, compressedBuyEventsJson);
+            
+
+            // Write to the database
+            try {
+                client.put(writePolicy, key, viewBin, buyBin);
+                break;
+            } catch (AerospikeException e) {
+                if (e.getResultCode() == ResultCode.GENERATION_ERROR || e.getResultCode() == ResultCode.KEY_EXISTS_ERROR) {
+                    // Retry on generation error or key exists error
+                    log.warn("Optimistic concurrency control failed, retrying");
+                } else {
+                    throw e; // If it's another exception, rethrow it
+                }
+
+            }
+
         }
-        
-        
-        // Add the new event to the appropriate list. Only keep the most recent MAX_EVENTS events.
-        if (userTagEvent.getAction() == Action.VIEW) {
-            insertEvent(viewEvents, userTagEvent);
-        } else {
-            insertEvent(buyEvents, userTagEvent);
-        }
-        
-        
-        // log.info("\nAdding user tag event: {} \n", userTagEvent);
-
-        // Convert lists to JSON, compress and save in Aerospike
-        byte[] compressedViewEventsJson = compressEvents(viewEvents);
-        byte[] compressedBuyEventsJson = compressEvents(buyEvents);
-
-        Bin viewBin = new Bin(VIEW_BIN, compressedViewEventsJson);
-        Bin buyBin = new Bin(BUY_BIN, compressedBuyEventsJson);
-        WritePolicy policy = new WritePolicy(client.writePolicyDefault);
-        client.put(policy, key, viewBin, buyBin);
 
     }
 
@@ -141,6 +173,8 @@ public class UserDao {
             log.error("Different results for cookie: {}, time range: {}, limit: {}", cookie, timeRangeStr, limit);
             log.info("Expected result: \t{}", expectedResult);
             log.info("Actual result: \t{}\n", result);
+            log.info("View events: \t{}", viewEvents);
+            log.info("Buy events: \t{}", buyEvents);
         }
         
 

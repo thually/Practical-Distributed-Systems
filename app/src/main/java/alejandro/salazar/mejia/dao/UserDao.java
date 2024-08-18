@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 
 import javax.annotation.PreDestroy;
 
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,8 +33,9 @@ import com.aerospike.client.policy.GenerationPolicy;
 
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -164,16 +164,17 @@ public class UserDao {
 
             }
 
-            Instant time = userTagEvent.getTime();
-            String timeBucket = time.atZone(ZoneOffset.UTC).withSecond(0).withNano(0).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            String value = objectMapper.writeValueAsString(userTagEvent);
-            producer.send(new ProducerRecord<>(TOPIC, timeBucket, value), (metadata, exception) -> {
-                if (exception != null) {
-                    log.error("Error while sending message to Kafka", exception);
-                }
-            });
-
         }
+
+        // Send the event to Kafka
+        Instant time = userTagEvent.getTime();
+        String timeBucket = time.atZone(ZoneOffset.UTC).withSecond(0).withNano(0).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        String value = objectMapper.writeValueAsString(userTagEvent);
+        producer.send(new ProducerRecord<>(TOPIC, timeBucket, value), (metadata, exception) -> {
+            if (exception != null) {
+                log.error("Error while sending message to Kafka", exception);
+            }
+        });
 
     }
 

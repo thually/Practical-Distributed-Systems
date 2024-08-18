@@ -99,14 +99,20 @@ public class UserDao {
     public void addUserTag(UserTagEvent userTagEvent) throws Exception {
 
         // Send the event to Kafka
-        Instant time = userTagEvent.getTime();
-        String timeBucket = time.atZone(ZoneOffset.UTC).withSecond(0).withNano(0).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-        String value = objectMapper.writeValueAsString(userTagEvent);
-        producer.send(new ProducerRecord<>(TOPIC, timeBucket, value), (metadata, exception) -> {
-            if (exception != null) {
-                log.error("Error while sending message to Kafka", exception);
-            }
-        });
+        try {
+            Instant time = userTagEvent.getTime();
+            String timeBucket = time.atZone(ZoneOffset.UTC).withSecond(0).withNano(0).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            String value = objectMapper.writeValueAsString(userTagEvent);
+        
+            producer.send(new ProducerRecord<>(TOPIC, timeBucket, value), (metadata, exception) -> {
+                if (exception != null) {
+                    log.error("Error while sending message to Kafka", exception);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Failed to send the event to Kafka", e);
+        }
+        
 
         // Cookie is the unique identifier for the user
         Key key = new Key(NAMESPACE, SET, userTagEvent.getCookie());

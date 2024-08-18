@@ -1,13 +1,17 @@
 package alejandro.salazar.mejia.dao;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import javax.annotation.PreDestroy;
 
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +32,11 @@ import com.aerospike.client.policy.Replica;
 import com.aerospike.client.policy.WritePolicy;
 import com.aerospike.client.policy.GenerationPolicy;
 
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.KafkaProducer;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -37,6 +46,7 @@ import alejandro.salazar.mejia.domain.Action;
 import alejandro.salazar.mejia.domain.UserProfileResult;
 import alejandro.salazar.mejia.domain.UserTagEvent;
 import java.util.Comparator;
+import java.util.HashMap;
 
 
 @Component
@@ -44,15 +54,30 @@ public class UserDao {
 
     private static final Logger log = LoggerFactory.getLogger(UserDao.class);
 
+    // Aerospike configuration
     private static final String NAMESPACE = "mimuw";
     private static final String SET = "users";
     private static final String VIEW_BIN = "views";
     private static final String BUY_BIN = "buys";
     private static final int MAX_EVENTS = 200;
 
+    // Kafka configuration
+    private static final String TOPIC = "user_tags";
+    private static final Map<String, Object> kafkaProperties = new HashMap<>();
+    static {
+        kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        kafkaProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "st112vm103.rtb-lab.pl:9092");
+        
+        kafkaProperties.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy"); // Set compression type to snappy
+        kafkaProperties.put(ProducerConfig.LINGER_MS_CONFIG, 100);
+    }
+
     private static final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     private AerospikeClient client;
+    private Producer<String, String> producer = new KafkaProducer<>(kafkaProperties);
+
 
     private static ClientPolicy defaultClientPolicy() {
         ClientPolicy defaultClientPolicy = new ClientPolicy();
@@ -139,6 +164,15 @@ public class UserDao {
 
             }
 
+            Instant time = userTagEvent.getTime();
+            String timeBucket = time.atZone(ZoneOffset.UTC).withSecond(0).withNano(0).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            String value = objectMapper.writeValueAsString(userTagEvent);
+            producer.send(new ProducerRecord<>(TOPIC, timeBucket, value), (metadata, exception) -> {
+                if (exception != null) {
+                    log.error("Error while sending message to Kafka", exception);
+                }
+            });
+
         }
 
     }
@@ -168,7 +202,6 @@ public class UserDao {
         
         UserProfileResult result = new UserProfileResult(cookie, filteredViews, filteredBuys);
 
-        // TODO: Remove this
         if (!expectedResult.toString().equals(result.toString())) {
             log.error("Different results for cookie: {}, time range: {}, limit: {}", cookie, timeRangeStr, limit);
             log.info("Expected result: \t{}", expectedResult);
@@ -214,5 +247,6 @@ public class UserDao {
     @PreDestroy
     public void close() {
         client.close();
+        producer.close();
     }
 }

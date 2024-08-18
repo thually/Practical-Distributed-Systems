@@ -3,6 +3,10 @@ package alejandro.salazar.mejia;
 import alejandro.salazar.mejia.domain.*;
 
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -34,11 +38,36 @@ public class MyClassTest {
     private static final int MAX_EVENTS = 200;
     private static final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
-
     public static void main(String[] args) throws Exception {
-        
-        test2();
 
+        test3();
+
+    }
+
+    public static void test3() {
+
+        Instant instant = Instant.now();
+        System.out.println(instant);
+
+        ZonedDateTime zonedDateTime = instant.atZone(ZoneOffset.UTC).withSecond(0).withNano(0);
+        // Format as a string in the desired format
+        String timeBucket = zonedDateTime.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+        // Output the result
+        System.out.println(timeBucket);
+        
+
+        // Interpreting the Instant in UTC
+        ZonedDateTime utcTime = instant.atZone(ZoneOffset.UTC);
+        System.out.println("UTC Time: " + utcTime);
+
+        // Interpreting the Instant in New York Time
+        ZonedDateTime nyTime = instant.atZone(ZoneId.of("America/New_York"));
+        System.out.println("New York Time: " + nyTime);
+
+        // Interpreting the Instant in Warsaw Time
+        ZonedDateTime warsawTime = instant.atZone(ZoneId.of("Europe/Warsaw"));
+        System.out.println("Warsaw Time: " + warsawTime);
     }
 
     public static void test2() {
@@ -52,24 +81,25 @@ public class MyClassTest {
         System.out.println("After inserting 250 integers: ");
         System.out.println(integers);
         System.out.println(integers.size());
-        
+
     }
 
     private static void test1() throws Exception {
         System.out.println("This is test1 method in the test folder.");
 
-        String[] aerospikeSeeds = {"st112vm106.rtb-lab.pl", "st112vm107.rtb-lab.pl"};
+        String[] aerospikeSeeds = { "st112vm106.rtb-lab.pl", "st112vm107.rtb-lab.pl" };
         int port = 3000;
-        AerospikeClient client = new AerospikeClient(defaultClientPolicy(), Arrays.stream(aerospikeSeeds).map(seed -> new Host(seed, port)).toArray(Host[]::new));
+        AerospikeClient client = new AerospikeClient(defaultClientPolicy(),
+                Arrays.stream(aerospikeSeeds).map(seed -> new Host(seed, port)).toArray(Host[]::new));
 
         // Add your test-specific code here
         UserTagEvent userTag1 = new UserTagEvent(
-                Instant.now(), 
-                "cookie123", 
-                "USA", 
-                Device.PC, 
-                Action.VIEW, 
-                "origin", 
+                Instant.now(),
+                "cookie123",
+                "USA",
+                Device.PC,
+                Action.VIEW,
+                "origin",
                 new Product(1, "brandA", "categoryX", 100));
 
         UserTagEvent userTag2 = new UserTagEvent(
@@ -79,8 +109,7 @@ public class MyClassTest {
                 Device.MOBILE,
                 Action.BUY,
                 "productPage",
-                new Product(2, "brandB", "categoryY", 200)
-        );
+                new Product(2, "brandB", "categoryY", 200));
 
         UserTagEvent userTag3 = new UserTagEvent(
                 Instant.now(),
@@ -89,12 +118,13 @@ public class MyClassTest {
                 Device.TV,
                 Action.VIEW,
                 "checkout",
-                new Product(3, "brandC", "categoryZ", 300)
-        );
+                new Product(3, "brandC", "categoryZ", 300));
 
-        /* System.out.println(userTag1 + "\n");
-        System.out.println(userTag2);
-        System.out.println(userTag3); */
+        /*
+         * System.out.println(userTag1 + "\n");
+         * System.out.println(userTag2);
+         * System.out.println(userTag3);
+         */
 
         List<UserTagEvent> viewEvents = List.of(userTag3, userTag1);
         List<UserTagEvent> buyEvents = new ArrayList<>();
@@ -113,7 +143,6 @@ public class MyClassTest {
         Key key = new Key(NAMESPACE, SET_TEST, "cookie123");
         client.put(policy, key, viewBin, buyBin);
 
-
         // Read the data
         Key keyRead = new Key(NAMESPACE, SET_TEST, "cookie123");
         Record record = client.get(null, keyRead);
@@ -130,7 +159,8 @@ public class MyClassTest {
             return new ArrayList<>();
         }
         byte[] decompressedData = Snappy.uncompress((byte[]) compressedData);
-        return objectMapper.readValue(decompressedData, new TypeReference<List<UserTagEvent>>() {});
+        return objectMapper.readValue(decompressedData, new TypeReference<List<UserTagEvent>>() {
+        });
     }
 
     private static void insertEvent(List<UserTagEvent> events, UserTagEvent newEvent) {

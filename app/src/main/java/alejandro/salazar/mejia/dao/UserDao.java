@@ -287,34 +287,29 @@ public class UserDao {
 
             // Construct key based on the parameters
             String key = timeBucket + "_" + action.name();
-            if (origin != null)
-                key += "_" + origin;
-            if (brandId != null)
-                key += "_" + brandId;
-            if (categoryId != null)
-                key += "_" + categoryId;
+            if (origin != null)     key += "_" + origin;
+            if (brandId != null)    key += "_" + brandId;
+            if (categoryId != null) key += "_" + categoryId;
 
             Key aerospikeKey = new Key(NAMESPACE, SET_AGREGGATES, key);
             Record record = client.get(null, aerospikeKey);
 
+            List<String> row = new ArrayList<>();
+            row.add(timeBucket);
+            row.add(action.name());
+            if (origin != null)     row.add(origin);
+            if (brandId != null)    row.add(brandId);
+            if (categoryId != null) row.add(categoryId);
+
             // Query Aerospike
             if (record != null) {
-                List<String> row = new ArrayList<>();
-                row.add(timeBucket);
-                row.add(action.name());
-                if (origin != null)
-                    row.add(origin);
-                if (brandId != null)
-                    row.add(brandId);
-                if (categoryId != null)
-                    row.add(categoryId);
                 aggregates.forEach(aggregate -> {
                     Long value = record.getLong(aggregate.name().toLowerCase());
                     row.add(value != null ? value.toString() : "0");
                 });
-                rows.add(row);
             } else {
                 log.warn("No data found for key: {}", key);
+                aggregates.forEach(aggregate -> row.add("0"));
             }
 
         }

@@ -99,7 +99,7 @@ public class PurchaseProcessor implements Processor<String, String, String, Stri
 
                 Key aerospikeKey = new Key("mimuw", "aggregates", key);
                 Bin countBin = new Bin("count", localCount);
-                Bin sumBin = new Bin("sum", localSum);
+                Bin sumBin = new Bin("sum_price", localSum);
 
                 // Atomically add the local count and sum to the values in Aerospike
                 aerospikeClient.operate(writePolicy, aerospikeKey,

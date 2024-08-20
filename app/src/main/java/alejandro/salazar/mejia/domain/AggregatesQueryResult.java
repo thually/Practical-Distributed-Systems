@@ -30,4 +30,12 @@ public class AggregatesQueryResult {
     public void setRows(List<List<String>> rows) {
         this.rows = rows;
     }
+
+    @Override
+    public String toString() {
+        return "AggregatesQueryResult{" +
+                "columns=" + columns +
+                ", rows=" + rows +
+                '}';
+    }
 }

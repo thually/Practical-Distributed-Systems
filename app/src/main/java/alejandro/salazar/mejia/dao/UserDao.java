@@ -266,88 +266,72 @@ public class UserDao {
         Instant startTime = Instant.parse(timeRange[0] + "Z");
         Instant endTime = Instant.parse(timeRange[1] + "Z");
 
-        // Prepare the list to store the results
         List<String> columns = new ArrayList<>();
-        List<List<String>> rows = new ArrayList<>();
         columns.add("1m_bucket");
         columns.add("action");
-
         // Dynamically add the columns based on the parameters provided
-        if (origin != null) {
+        if (origin != null)
             columns.add("origin");
-        }
-        if (brandId != null) {
+        if (brandId != null)
             columns.add("brand_id");
-        }
-        if (categoryId != null) {
+        if (categoryId != null)
             columns.add("category_id");
-        }
+        aggregates.forEach(aggregate -> columns.add(aggregate.name().toLowerCase()));
 
-        // Add columns for each aggregate
-        for (Aggregate aggregate : aggregates) {
-            columns.add(aggregate.name().toLowerCase());
-        }
+        List<List<String>> rows = new ArrayList<>();
 
         // Loop through each minute bucket in the given time range
-        Instant bucketTime = startTime;
-        while (bucketTime.isBefore(endTime)) {
-            String bucketKey = bucketTime.atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        for (Instant current = startTime; current.isBefore(endTime); current = current.plusSeconds(60)) {
+            String timeBucket = current.atZone(ZoneOffset.UTC).withSecond(0).withNano(0)
+                    .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
-            // Construct the Aerospike key based on the parameters
-            StringBuilder aerospikeKeyBuilder = new StringBuilder(bucketKey + "_" + action.name());
-            if (origin != null) {
-                aerospikeKeyBuilder.append("_").append(origin);
-            }
-            if (brandId != null) {
-                aerospikeKeyBuilder.append("_").append(brandId);
-            }
-            if (categoryId != null) {
-                aerospikeKeyBuilder.append("_").append(categoryId);
-            }
+            // Construct key based on the parameters
+            String key = timeBucket + "_" + action.name();
+            if (origin != null)
+                key += "_" + origin;
+            if (brandId != null)
+                key += "_" + brandId;
+            if (categoryId != null)
+                key += "_" + categoryId;
 
-            String aerospikeKey = aerospikeKeyBuilder.toString();
-            Key key = new Key(NAMESPACE, SET_AGREGGATES, aerospikeKey);
+            Key aerospikeKey = new Key(NAMESPACE, SET_AGREGGATES, key);
+            Record record = client.get(null, aerospikeKey);
 
             // Query Aerospike
-            Record record = client.get(null, key);
             if (record != null) {
                 List<String> row = new ArrayList<>();
-                row.add(bucketKey);
+                row.add(timeBucket);
                 row.add(action.name());
-
-                if (origin != null) {
+                if (origin != null)
                     row.add(origin);
-                }
-                if (brandId != null) {
+                if (brandId != null)
                     row.add(brandId);
-                }
-                if (categoryId != null) {
+                if (categoryId != null)
                     row.add(categoryId);
-                }
-
-                // Add values for each aggregate
-                for (Aggregate aggregate : aggregates) {
-                    switch (aggregate) {
-                        case COUNT:
-                            row.add(String.valueOf(record.getLong("count")));
-                            break;
-                        case SUM_PRICE:
-                            row.add(String.valueOf(record.getLong("sum")));
-                            break;
-                        // Add more aggregates here if needed
-                        default:
-                            throw new UnsupportedOperationException("Unsupported aggregate: " + aggregate);
-                    }
-                }
-
+                aggregates.forEach(aggregate -> {
+                    Long value = record.getLong(aggregate.name().toLowerCase());
+                    row.add(value != null ? value.toString() : "0");
+                });
                 rows.add(row);
+            } else {
+                log.warn("No data found for key: {}", key);
             }
 
-            // Move to the next bucket (1 minute forward)
-            bucketTime = bucketTime.plusSeconds(60);
         }
 
-        // Return the result
-        return new AggregatesQueryResult(columns, rows);
+        AggregatesQueryResult result = new AggregatesQueryResult(columns, rows);
+
+        // Compare with expectedResult and log differences
+        if (!expectedResult.getColumns().equals(result.getColumns()) ||
+                !expectedResult.getRows().equals(result.getRows())) {
+
+            log.error(
+                    "Differences found in AggregatesQueryResult for time range: {}, action: {}, origin: {}, brand_id: {}, category_id: {}",
+                    timeRangeStr, action, origin, brandId, categoryId);
+            log.info("Expected Result: {}", expectedResult);
+            log.info("Actual Result: {}", result);
+        }
+
+        return result;
     }
 }

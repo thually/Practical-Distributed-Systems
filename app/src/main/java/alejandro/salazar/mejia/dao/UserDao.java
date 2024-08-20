@@ -312,6 +312,8 @@ public class UserDao {
                 aggregates.forEach(aggregate -> row.add("0"));
             }
 
+            rows.add(row);
+
         }
 
         AggregatesQueryResult result = new AggregatesQueryResult(columns, rows);

@@ -43,11 +43,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import org.xerial.snappy.Snappy;
 
 import alejandro.salazar.mejia.domain.Action;
+import alejandro.salazar.mejia.domain.Aggregate;
+import alejandro.salazar.mejia.domain.AggregatesQueryResult;
 import alejandro.salazar.mejia.domain.UserProfileResult;
 import alejandro.salazar.mejia.domain.UserTagEvent;
 import java.util.Comparator;
 import java.util.HashMap;
-
 
 @Component
 public class UserDao {
@@ -57,6 +58,7 @@ public class UserDao {
     // Aerospike configuration
     private static final String NAMESPACE = "mimuw";
     private static final String SET = "users";
+    private static final String SET_AGREGGATES = "aggregates";
     private static final String VIEW_BIN = "views";
     private static final String BUY_BIN = "buys";
     private static final int MAX_EVENTS = 200;
@@ -68,7 +70,7 @@ public class UserDao {
         kafkaProperties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         kafkaProperties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "st112vm103.rtb-lab.pl:9092");
-        
+
         kafkaProperties.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy"); // Set compression type to snappy
         kafkaProperties.put(ProducerConfig.LINGER_MS_CONFIG, 100);
     }
@@ -77,7 +79,6 @@ public class UserDao {
 
     private AerospikeClient client;
     private Producer<String, String> producer = new KafkaProducer<>(kafkaProperties);
-
 
     private static ClientPolicy defaultClientPolicy() {
         ClientPolicy defaultClientPolicy = new ClientPolicy();
@@ -92,18 +93,19 @@ public class UserDao {
     }
 
     public UserDao(@Value("${aerospike.seeds}") String[] aerospikeSeeds, @Value("${aerospike.port}") int port) {
-        this.client = new AerospikeClient(defaultClientPolicy(), Arrays.stream(aerospikeSeeds).map(seed -> new Host(seed, port)).toArray(Host[]::new));
+        this.client = new AerospikeClient(defaultClientPolicy(),
+                Arrays.stream(aerospikeSeeds).map(seed -> new Host(seed, port)).toArray(Host[]::new));
     }
-
 
     public void addUserTag(UserTagEvent userTagEvent) throws Exception {
 
         // Send the event to Kafka
         try {
             Instant time = userTagEvent.getTime();
-            String timeBucket = time.atZone(ZoneOffset.UTC).withSecond(0).withNano(0).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            String timeBucket = time.atZone(ZoneOffset.UTC).withSecond(0).withNano(0)
+                    .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
             String value = objectMapper.writeValueAsString(userTagEvent);
-        
+
             producer.send(new ProducerRecord<>(TOPIC, timeBucket, value), (metadata, exception) -> {
                 if (exception != null) {
                     log.error("Error while sending message to Kafka", exception);
@@ -112,7 +114,6 @@ public class UserDao {
         } catch (Exception e) {
             log.error("Failed to send the event to Kafka", e);
         }
-        
 
         // Cookie is the unique identifier for the user
         Key key = new Key(NAMESPACE, SET, userTagEvent.getCookie());
@@ -124,7 +125,6 @@ public class UserDao {
             Record record = client.get(readPolicy, key);
             List<UserTagEvent> viewEvents;
             List<UserTagEvent> buyEvents;
-            
 
             if (record == null) {
                 // No existing record, create new lists
@@ -148,30 +148,30 @@ public class UserDao {
 
             }
 
-            // Add the new event to the appropriate list. Only keep the most recent MAX_EVENTS events.
+            // Add the new event to the appropriate list. Only keep the most recent
+            // MAX_EVENTS events.
             if (userTagEvent.getAction() == Action.VIEW) {
                 insertEvent(viewEvents, userTagEvent);
             } else {
                 insertEvent(buyEvents, userTagEvent);
             }
 
-
             // log.info("\nAdding user tag event: {} \n", userTagEvent);
-    
+
             // Convert lists to JSON and compress
             byte[] compressedViewEventsJson = compressEvents(viewEvents);
             byte[] compressedBuyEventsJson = compressEvents(buyEvents);
-    
+
             Bin viewBin = new Bin(VIEW_BIN, compressedViewEventsJson);
             Bin buyBin = new Bin(BUY_BIN, compressedBuyEventsJson);
-            
 
             // Write to the database
             try {
                 client.put(writePolicy, key, viewBin, buyBin);
                 break;
             } catch (AerospikeException e) {
-                if (e.getResultCode() == ResultCode.GENERATION_ERROR || e.getResultCode() == ResultCode.KEY_EXISTS_ERROR) {
+                if (e.getResultCode() == ResultCode.GENERATION_ERROR
+                        || e.getResultCode() == ResultCode.KEY_EXISTS_ERROR) {
                     // Retry on generation error or key exists error
                     log.warn("Optimistic concurrency control failed, retrying");
                 } else {
@@ -184,7 +184,8 @@ public class UserDao {
 
     }
 
-    public UserProfileResult getUserProfile(String cookie, String timeRangeStr, int limit, UserProfileResult expectedResult) throws Exception {
+    public UserProfileResult getUserProfile(String cookie, String timeRangeStr, int limit,
+            UserProfileResult expectedResult) throws Exception {
         // Parse the time range
         String[] timeRange = timeRangeStr.split("_");
         Instant startTime = Instant.parse(timeRange[0] + "Z");
@@ -206,7 +207,7 @@ public class UserDao {
         // Filter and limit events
         List<UserTagEvent> filteredViews = filterAndLimitEvents(viewEvents, startTime, endTime, limit);
         List<UserTagEvent> filteredBuys = filterAndLimitEvents(buyEvents, startTime, endTime, limit);
-        
+
         UserProfileResult result = new UserProfileResult(cookie, filteredViews, filteredBuys);
 
         if (!expectedResult.toString().equals(result.toString())) {
@@ -216,12 +217,12 @@ public class UserDao {
             log.info("View events: \t{}", viewEvents);
             log.info("Buy events: \t{}", buyEvents);
         }
-        
 
         return result;
     }
 
-    private static List<UserTagEvent> filterAndLimitEvents(List<UserTagEvent> events, Instant startTime, Instant endTime, int limit) {
+    private static List<UserTagEvent> filterAndLimitEvents(List<UserTagEvent> events, Instant startTime,
+            Instant endTime, int limit) {
         return events.stream()
                 .filter(event -> !event.getTime().isBefore(startTime) && event.getTime().isBefore(endTime))
                 .limit(limit)
@@ -234,7 +235,8 @@ public class UserDao {
             return new ArrayList<>();
         }
         byte[] decompressedData = Snappy.uncompress((byte[]) compressedData);
-        return objectMapper.readValue(decompressedData, new TypeReference<List<UserTagEvent>>() {});
+        return objectMapper.readValue(decompressedData, new TypeReference<List<UserTagEvent>>() {
+        });
     }
 
     private static void insertEvent(List<UserTagEvent> events, UserTagEvent newEvent) {
@@ -250,10 +252,102 @@ public class UserDao {
         return Snappy.compress(json);
     }
 
-
     @PreDestroy
     public void close() {
         client.close();
         producer.close();
+    }
+
+    public AggregatesQueryResult getAggregates(String timeRangeStr, Action action, List<Aggregate> aggregates,
+            String origin, String brandId, String categoryId, AggregatesQueryResult expectedResult) {
+
+        // Parse the time range into start and end Instants
+        String[] timeRange = timeRangeStr.split("_");
+        Instant startTime = Instant.parse(timeRange[0] + "Z");
+        Instant endTime = Instant.parse(timeRange[1] + "Z");
+
+        // Prepare the list to store the results
+        List<String> columns = new ArrayList<>();
+        List<List<String>> rows = new ArrayList<>();
+        columns.add("1m_bucket");
+        columns.add("action");
+
+        // Dynamically add the columns based on the parameters provided
+        if (origin != null) {
+            columns.add("origin");
+        }
+        if (brandId != null) {
+            columns.add("brand_id");
+        }
+        if (categoryId != null) {
+            columns.add("category_id");
+        }
+
+        // Add columns for each aggregate
+        for (Aggregate aggregate : aggregates) {
+            columns.add(aggregate.name().toLowerCase());
+        }
+
+        // Loop through each minute bucket in the given time range
+        Instant bucketTime = startTime;
+        while (bucketTime.isBefore(endTime)) {
+            String bucketKey = bucketTime.atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+            // Construct the Aerospike key based on the parameters
+            StringBuilder aerospikeKeyBuilder = new StringBuilder(bucketKey + "_" + action.name());
+            if (origin != null) {
+                aerospikeKeyBuilder.append("_").append(origin);
+            }
+            if (brandId != null) {
+                aerospikeKeyBuilder.append("_").append(brandId);
+            }
+            if (categoryId != null) {
+                aerospikeKeyBuilder.append("_").append(categoryId);
+            }
+
+            String aerospikeKey = aerospikeKeyBuilder.toString();
+            Key key = new Key(NAMESPACE, SET_AGREGGATES, aerospikeKey);
+
+            // Query Aerospike
+            Record record = client.get(null, key);
+            if (record != null) {
+                List<String> row = new ArrayList<>();
+                row.add(bucketKey);
+                row.add(action.name());
+
+                if (origin != null) {
+                    row.add(origin);
+                }
+                if (brandId != null) {
+                    row.add(brandId);
+                }
+                if (categoryId != null) {
+                    row.add(categoryId);
+                }
+
+                // Add values for each aggregate
+                for (Aggregate aggregate : aggregates) {
+                    switch (aggregate) {
+                        case COUNT:
+                            row.add(String.valueOf(record.getLong("count")));
+                            break;
+                        case SUM_PRICE:
+                            row.add(String.valueOf(record.getLong("sum")));
+                            break;
+                        // Add more aggregates here if needed
+                        default:
+                            throw new UnsupportedOperationException("Unsupported aggregate: " + aggregate);
+                    }
+                }
+
+                rows.add(row);
+            }
+
+            // Move to the next bucket (1 minute forward)
+            bucketTime = bucketTime.plusSeconds(60);
+        }
+
+        // Return the result
+        return new AggregatesQueryResult(columns, rows);
     }
 }

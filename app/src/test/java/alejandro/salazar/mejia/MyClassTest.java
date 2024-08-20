@@ -40,8 +40,28 @@ public class MyClassTest {
 
     public static void main(String[] args) throws Exception {
 
-        test3();
+        test4();
 
+    }
+
+    public static void test4() {
+        String timeRangeStr = "2022-03-22T12:25:00_2022-03-22T12:28:00";
+        // Parse the time range into start and end Instants
+        String[] timeRange = timeRangeStr.split("_");
+        Instant startTime = Instant.parse(timeRange[0] + "Z");
+        Instant endTime = Instant.parse(timeRange[1] + "Z");
+
+        System.out.println("Start time: " + startTime);
+        System.out.println("End time: " + endTime);
+
+        System.out.println("Start time: " + startTime.atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        System.out.println("End time: " + endTime.atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+
+        while (startTime.isBefore(endTime)) {
+            System.out.println(startTime.atZone(ZoneOffset.UTC).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+            startTime = startTime.plusSeconds(60);
+            
+        }
     }
 
     public static void test3() {

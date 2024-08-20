@@ -67,6 +67,15 @@ public class FrontComponent {
             @RequestParam(value = "category_id", required = false) String categoryId,
             @RequestBody(required = false) AggregatesQueryResult expectedResult) {
 
-        return ResponseEntity.ok(expectedResult);
+
+        // AggregatesQueryResult result = userDao.getAggregates(timeRangeStr, action, aggregates, origin, brandId, categoryId, expectedResult);
+        try {
+            AggregatesQueryResult result = userDao.getAggregates(timeRangeStr, action, aggregates, origin, brandId, categoryId, expectedResult);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            // server error
+            log.error("Error while getting aggregates", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }

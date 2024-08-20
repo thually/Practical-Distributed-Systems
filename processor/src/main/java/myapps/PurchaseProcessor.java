@@ -50,7 +50,7 @@ public class PurchaseProcessor implements Processor<String, String, String, Stri
             String keyPrefix = record.key();
 
             // TODO: Remove this line
-            System.out.println("Processing event: " + event);
+            // System.out.println("Processing event: " + event);
 
             if (event.getAction() == Action.BUY || event.getAction() == Action.VIEW) {
                 String actionType = event.getAction().name();
@@ -74,7 +74,7 @@ public class PurchaseProcessor implements Processor<String, String, String, Stri
             String countSumKey = keyPrefix + "_" + actionType + (dimension.isEmpty() ? "" : "_" + dimension);
 
             // TODO: Remove this line
-            System.out.println("Incrementing count and sum for key: " + countSumKey);
+            // System.out.println("Incrementing count and sum for key: " + countSumKey);
 
             incrementStore(countStore, countSumKey, 1L);
             incrementStore(sumStore, countSumKey, (long) event.getProductInfo().getPrice());

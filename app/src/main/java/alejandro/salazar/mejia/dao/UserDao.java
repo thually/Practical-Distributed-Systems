@@ -72,7 +72,7 @@ public class UserDao {
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "st112vm103.rtb-lab.pl:9092");
 
         kafkaProperties.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy"); // Set compression type to snappy
-        kafkaProperties.put(ProducerConfig.LINGER_MS_CONFIG, 100);
+        kafkaProperties.put(ProducerConfig.LINGER_MS_CONFIG, 5);
     }
 
     private static final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());

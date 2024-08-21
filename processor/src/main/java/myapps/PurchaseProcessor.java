@@ -40,7 +40,7 @@ public class PurchaseProcessor implements Processor<String, String, String, Stri
         String[] aerospikeSeeds = { "st112vm106.rtb-lab.pl", "st112vm107.rtb-lab.pl" };
         int port = 3000;
         aerospikeClient = new AerospikeClient(defaultClientPolicy(), Arrays.stream(aerospikeSeeds).map(seed -> new Host(seed, port)).toArray(Host[]::new));
-        context.schedule(Duration.ofSeconds(15), PunctuationType.WALL_CLOCK_TIME, timestamp -> flushToAerospike());
+        context.schedule(Duration.ofSeconds(10), PunctuationType.WALL_CLOCK_TIME, timestamp -> flushToAerospike());
     }
 
     @Override

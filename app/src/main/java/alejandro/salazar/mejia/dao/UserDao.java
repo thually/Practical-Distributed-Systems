@@ -72,7 +72,7 @@ public class UserDao {
         kafkaProperties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "st112vm103.rtb-lab.pl:9092");
 
         kafkaProperties.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy"); // Set compression type to snappy
-        kafkaProperties.put(ProducerConfig.LINGER_MS_CONFIG, 10);
+        kafkaProperties.put(ProducerConfig.LINGER_MS_CONFIG, 5);
     }
 
     private static final ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
@@ -83,8 +83,9 @@ public class UserDao {
     private static ClientPolicy defaultClientPolicy() {
         ClientPolicy defaultClientPolicy = new ClientPolicy();
         defaultClientPolicy.readPolicyDefault.replica = Replica.MASTER_PROLES;
-        defaultClientPolicy.readPolicyDefault.socketTimeout = 1000;
-        defaultClientPolicy.readPolicyDefault.totalTimeout = 1000;
+        defaultClientPolicy.readPolicyDefault.socketTimeout = 2000;
+        defaultClientPolicy.readPolicyDefault.totalTimeout = 3000;
+        defaultClientPolicy.readPolicyDefault.maxRetries = 3;
         defaultClientPolicy.writePolicyDefault.socketTimeout = 15000;
         defaultClientPolicy.writePolicyDefault.totalTimeout = 15000;
         defaultClientPolicy.writePolicyDefault.maxRetries = 1;

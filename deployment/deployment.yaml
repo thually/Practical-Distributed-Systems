@@ -1,0 +1,94 @@
+---
+- name: Automate deployment of distributed app
+  hosts: st112vm105.rtb-lab.pl
+  become: yes
+
+  tasks:
+    - name: Clone the Practical-Distributed-Systems repo
+      git:
+        repo: https://github.com/thually/Practical-Distributed-Systems.git
+        dest: ~/Practical-Distributed-Systems
+
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+
+    - name: Build HAProxy Docker image
+      command: docker build -t my-haproxy .
+      args:
+        chdir: ~/Practical-Distributed-Systems/app_lb
+
+    - name: Run HAProxy container
+      docker_container:
+        name: haproxy
+        image: my-haproxy
+        state: started
+        ports:
+          - "9000:9000"
+          - "10000:10000"
+
+    - name: Install Aerospike on VMs 106-110
+      ansible.builtin.include_tasks: ~/Practical-Distributed-Systems/aerospike/aerospike.yaml
+      vars:
+        hosts: st112vm1[06-10].rtb-lab.pl
+
+    - name: Install Kafka on VMs 103-104
+      ansible.builtin.include_tasks: ~/Practical-Distributed-Systems/kafka/kafka.yaml
+      vars:
+        hosts: st112vm1[03-04].rtb-lab.pl
+
+  - hosts: st112vm103.rtb-lab.pl
+    become: yes
+    tasks:
+      - name: Create Kafka topic
+        command: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --create --topic user_tags --replication-factor 2 --partitions 2
+
+  - hosts: st112vm1[01-02].rtb-lab.pl
+    become: yes
+    tasks:
+      - name: Install Maven
+        apt:
+          name: maven
+          state: present
+          update_cache: yes
+
+      - name: Clone the Practical-Distributed-Systems repo
+        git:
+          repo: https://github.com/thually/Practical-Distributed-Systems.git
+          dest: ~/Practical-Distributed-Systems
+
+      - name: Deploy front component
+        shell: |
+          rm -rf logs output.log
+          nohup mvn spring-boot:run > output.log 2>&1 &
+        args:
+          chdir: ~/Practical-Distributed-Systems/app
+
+  - hosts: st112vm1[03-04].rtb-lab.pl
+    become: yes
+    tasks:
+      - name: Install Maven
+        apt:
+          name: maven
+          state: present
+          update_cache: yes
+
+      - name: Clone the Practical-Distributed-Systems repo
+        git:
+          repo: https://github.com/thually/Practical-Distributed-Systems.git
+          dest: ~/Practical-Distributed-Systems
+
+      - name: Deploy processor component
+        shell: |
+          rm -rf /tmp/kafka-streams output.log
+          mvn clean package
+          nohup mvn exec:java -Dexec.mainClass=myapps.MyApp > myapp.log 2>&1 &
+        args:
+          chdir: ~/Practical-Distributed-Systems/processor/

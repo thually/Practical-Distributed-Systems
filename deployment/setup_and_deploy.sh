@@ -4,7 +4,7 @@
 sudo apt -y install ansible sshpass
 
 # Add the Ansible PPA repository
-sudo add-apt-repository ppa:ansible/ansible
+sudo add-apt-repository -y ppa:ansible/ansible
 
 # Update and upgrade Ansible
 sudo apt update

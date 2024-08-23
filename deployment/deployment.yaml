@@ -87,6 +87,12 @@
       args:
         chdir: ~/Practical-Distributed-Systems/processor/
 
+- hosts: localhost
+  tasks:
+    - name: Wait for 10 seconds before running Kafka configuration tasks
+      pause:
+        seconds: 10
+
 - hosts: st112vm103.rtb-lab.pl
   become: yes
   tasks:

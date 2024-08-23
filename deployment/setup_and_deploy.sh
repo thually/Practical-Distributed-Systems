@@ -17,4 +17,4 @@ ansible-galaxy collection install community.docker
 cd ~/Practical-Distributed-Systems/deployment
 
 # Run the Ansible playbook
-ansible-playbook --extra-vars "ansible_user=st112 ansible_password=gvxqn74d ansible_ssh_extra_args='-o StrictHostKeyChecking=no'" -i hosts deployment.yaml
+ansible-playbook --extra-vars "ansible_user=<user> ansible_password=<password> ansible_ssh_extra_args='-o StrictHostKeyChecking=no'" -i hosts deployment.yaml

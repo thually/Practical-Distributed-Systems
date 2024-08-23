@@ -1,0 +1,14 @@
+[haproxy]
+st112vm105.rtb-lab.pl
+
+[aerospike]
+st112vm1[06-10].rtb-lab.pl
+
+[kafka]
+st112vm1[03-04].rtb-lab.pl
+
+[front]
+st112vm1[01-02].rtb-lab.pl
+
+[processor]
+st112vm1[03-04].rtb-lab.pl

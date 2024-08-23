@@ -1,6 +1,6 @@
 ---
 - name: Automate deployment of distributed app
-  hosts: st112vm105.rtb-lab.pl
+  hosts: haproxy
   become: yes
 
   tasks:

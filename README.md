@@ -1,4 +1,4 @@
-# Practical Distributed Systems Project: _Data Collection and Analytics Platform_
+# Practical Distributed Systems Project:  _Data Collection and Analytics Platform_
 
 ## Overview
 

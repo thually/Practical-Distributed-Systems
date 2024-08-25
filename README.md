@@ -133,7 +133,7 @@ The platform is distributed across 10 virtual machines (VMs) to ensure scalabili
 - **VMs 106-110**: Aerospike database cluster, responsible for storing and retrieving user data efficiently.
 - **VMs 103-104**: Apache Kafka cluster, which facilitates high-throughput messaging and event streaming between components
 - **VM 105**: HAProxy, a high-availability load balancer that distributes incoming traffic across the front component instances to ensure reliability
-- **VMs 101-102**: Front component instances. *(Refer to the [Front Component](###front-component) section for more details.)*
+- **VMs 101-102**: Front component instances. *(Refer to the [Front Component](#front-component) section for more details.)*
 - **VMs 103-104**: Processor component instances. *(Refer to the [Processor Component](#processor-component) section for more details.)*
 
 ### Front Component

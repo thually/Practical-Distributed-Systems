@@ -124,6 +124,8 @@ We want to draw a chart showing two metrics over time: the number of BUY actions
   - `aggregates` (required): The type of aggregation (e.g., `COUNT`, `SUM_PRICE`). Multiple aggregates can be specified by repeating the parameter.
   - Additional optional parameters include `origin`, `brand_id`, and `category_id` for filtering results.
 - **Response**: Returns aggregated data in a JSON format, with columns specifying the aggregation criteria and rows representing 1-minute buckets within the specified time range.
+- **Performance**: Supports a throughput of at least 1 request per second with response times under 200 milliseconds.
+- **Data Query**: Events can be queried starting from 1 minute ago.
 
 
 ## Architecture

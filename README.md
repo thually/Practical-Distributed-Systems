@@ -150,9 +150,24 @@ The processing logic is written in Java, utilizing Kafka Streams for processing 
 
 
 ## Installation and Deployment
-
-1. **Prerequisites**: Ensure all required software (Java, Aerospike, Kafka, HAProxy, etc.) is installed on the corresponding VMs.
-2. **Deployment**: Follow the instructions in the `deploy` directory to set up each component using Ansible scripts.
-3. **Configuration**: Update the configuration files under the `config` directory for Aerospike, Kafka, and the front component.
-4. **Run the Platform**: Start the platform services using the provided scripts or Docker Compose files.
-
+1. Log into machine `st112vm105.rtb-lab.pl`:
+```bash
+ssh st112@st112vm105.rtb-lab.pl
+```
+2. Clone the project repository:
+```bash
+git clone https://github.com/thually/Practical-Distributed-Systems.git
+```
+3. Change to directory `Practical-Distributed-Systems/deployment`:
+```bash
+cd ~/Practical-Distributed-Systems/deployment
+```
+4. Edit the last line of the shell script `Practical-Distributed-Systems/deployment/setup_and_deploy.sh` to specify the `<user>` and `<password>`.
+5. Make the shell script executable:
+```bash
+chmod +x setup_and_deploy.sh
+```
+6. Execute the script:
+```bash
+./setup_and_deploy.sh
+```

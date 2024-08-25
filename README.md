@@ -44,7 +44,7 @@ Adds a single user tag event via an HTTP request.
 
 ### 2. Getting User Profiles
 
-Retrieves a user's profile, including a history of their actions.
+Quick access to the user profiles (history of the user actions). For each user, their 200 most recent events of each type are kept.
 
 - **Endpoint**: `POST /user_profiles/{cookie}?time_range=<time_range>&limit=<limit>`
 - **Response**: Returns the 200 most recent events for each action type (`VIEW`, `BUY`), sorted in descending time order.
@@ -53,7 +53,69 @@ Retrieves a user's profile, including a history of their actions.
 
 ### 3. Aggregated User Actions (Statistics)
 
-Provides aggregated statistics of user actions over specified time ranges, grouped into 1-minute buckets.
+This endpoint allow you to get aggregated stats about user actions matching some criteria and grouped by 1 minute buckets from the given time range.
+This allows you to view historical data from different perspectives. There is a broad category of queries for which aggregating results in 1 minute buckets is satisfactory. Such queries will allow us to present various metrics over longer periods of time enabling us to visualize trends such as: users' buying patterns, performance of ad campaigns, etc. Aggregates become available in query results soon after their time buckets are closed (in a matter of minutes). There is no predefined list of metrics which are going to be visualized.
+
+#### Examples
+
+##### Example 1
+We want to draw a chart showing the number of Nike products bought over time.
+
+* HTTP query
+  * `POST /aggregates?time_range=<time_from>_<time_to>&action=BUY&brand_id=Nike&aggregates=COUNT`
+* Result (presented here as rows)
+  * Let's assume there are N buckets inside the given range: bucket1 ... bucketN.
+    | 1m_bucket | action | brand_id | count |
+    | --------- | ------ | -------- | ----- |
+    | bucket1   | BUY    | Nike     | 49    |
+    | bucket2   | BUY    | Nike     | 52    |
+    | ...       | ...    | ...      | ...   |
+    | bucketN   | BUY    | Nike     | 77    |
+
+
+##### Example 2
+We want to draw a chart showing the number of Adidas women shoes viewed over time.
+
+* HTTP query
+  * `POST /aggregates?time_range=<time_from>_<time_to>&action=VIEW&brand_id=Adidas&category_id=WOMEN_SHOES&aggregates=COUNT`
+* Result (presented here as rows)
+  * Let's assume there are N buckets inside the given range: bucket1 ... bucketN.
+    | 1m_bucket | action | brand_id | category_id | count |
+    | --------- | ------ | -------- | ----------- | ----- |
+    | bucket1   | VIEW   | Adidas   | WOMAN_SHOES | 510   |
+    | bucket2   | VIEW   | Adidas   | WOMAN_SHOES | 490   |
+    | ...       | ...    | ...      | ...         | ...   |
+    | bucketN   | VIEW   | Adidas   | WOMAN_SHOES | 770   |
+
+##### Example 3
+
+We want to draw a chart showing two metrics over time: the number of BUY actions and the revenue, both associated with the given origin (i.e. ad campaign).
+
+* HTTP query
+  * `POST /aggregates?time_range=<time_from>_<time_to>&action=BUY&origin=NIKE_WOMEN_SHOES_CAMPAIGN&aggregates=COUNT&aggregates=SUM_PRICE`
+    * Different aggregates are represented by repeating "aggregates" query params.
+* Result (presented here as rows)
+  * Let's assume there are N buckets inside the given range: bucket1 ... bucketN.
+    | 1m_bucket | action | origin                    | count | sum_price |
+    | --------- | ------ | ------------------------- | ----- | --------- |
+    | bucket1   | BUY    | NIKE_WOMEN_SHOES_CAMPAIGN | 5     | 580       |
+    | bucket2   | BUY    | NIKE_WOMEN_SHOES_CAMPAIGN | 12    | 2190      |
+    | ...       | ...    | ...                       | ...   | ...       |
+    | bucketN   | BUY    | NIKE_WOMEN_SHOES_CAMPAIGN | 7     | 840       |
+
+
+#### Semantics of the query corresponds to the following SQL:
+  ```
+  SELECT 1m_bucket(time), action, [origin, brand_id, category_id], count(*), sum(price)
+      FROM events
+      WHERE time >= ${time_range.begin} and time < ${time_range.end}
+              AND action = ${action}
+              [AND origin = ${origin}]
+              [AND brand_id = ${brand_id}]
+              [AND category_id = ${category_id}]
+      GROUP BY 1m_bucket(time), action, [origin, brand_id, category_id]
+      ORDER BY 1m_bucket(time)
+  ```
 
 - **Endpoint**: `POST /aggregates?time_range=<time_range>&action=<action>&aggregates=[<aggregate>]`
 - **Parameters**:
@@ -63,73 +125,32 @@ Provides aggregated statistics of user actions over specified time ranges, group
   - Additional optional parameters include `origin`, `brand_id`, and `category_id` for filtering results.
 - **Response**: Returns aggregated data in a JSON format, with columns specifying the aggregation criteria and rows representing 1-minute buckets within the specified time range.
 
-### Example Queries
-
-- **Query 1**: Number of Nike products bought over time.
-  - **Request**: `POST /aggregates?time_range=2022-03-22T12:00:00_2022-03-22T13:00:00&action=BUY&brand_id=Nike&aggregates=COUNT`
-- **Query 2**: Views of Adidas women's shoes over time.
-  - **Request**: `POST /aggregates?time_range=2022-03-22T12:00:00_2022-03-22T13:00:00&action=VIEW&brand_id=Adidas&category_id=WOMEN_SHOES&aggregates=COUNT`
-- **Query 3**: Number of BUY actions and revenue for a specific ad campaign over time.
-  - **Request**: `POST /aggregates?time_range=2022-03-22T12:00:00_2022-03-22T13:00:00&action=BUY&origin=NIKE_WOMEN_SHOES_CAMPAIGN&aggregates=COUNT&aggregates=SUM_PRICE`
 
 ## Architecture
 
-The platform is distributed across 10 virtual machines (VMs):
+The platform is distributed across 10 virtual machines (VMs) to ensure scalability and resilience. The VMs are organized as follows:
 
-- **VMs 106-110**: Aerospike database cluster.
-- **VMs 103-104**: Kafka cluster brokers.
-- **VM 105**: HAProxy load balancer.
-- **VMs 101-102**: Instances of the front-end component that handle incoming traffic and manage interactions with Kafka and Aerospike.
+- **VMs 106-110**: Aerospike database cluster, responsible for storing and retrieving user data efficiently.
+- **VMs 103-104**: Apache Kafka cluster, which facilitates high-throughput messaging and event streaming between components
+- **VM 105**: HAProxy, a high-availability load balancer that distributes incoming traffic across the front component instances to ensure reliability
+- **VMs 101-102**: Front component instances. *(Refer to the [Front Component](###front-component) section for more details.)*
+- **VMs 103-104**: Processor component instances. *(Refer to the [Processor Component](#processor-component) section for more details.)*
 
-### Front-End Component
+### Front Component
 
-The front-end component manages data ingestion and processing. It uses Kafka for event streaming and an Aerospike cluster for storing and retrieving user data. The component is built in Java and uses libraries such as Jackson for JSON handling and Snappy for compression.
+The front component manages data ingestion, processing for Use Case 1 and 2, and data retieval for Use Case 3. It uses Kafka for event streaming the user tags to the processor component and an Aerospike cluster for storing and retrieving user data. The component is built in Java Spring boot and uses libraries such as Jackson for JSON handling and Snappy for compression.
 
-```java
-package alejandro.salazar.mejia.dao;
+### Processor Component
 
-// Java imports
-import java.time.Instant;
-// ... other imports
+The Processor component consumes user tag events from the Kafka topic, calculates various aggregates UtilizING Kafka Streams' state store, and makes these aggregates available to the Front component through Aerospike. This component is crucial for Use Cases 3, which involve real-time aggregation and data analysis.
+The processing logic is written in Java, utilizing Kafka Streams for processing and Aerospike for storage.
 
-@Component
-public class UserDao {
-    // Class details...
 
-    // Method to add a user tag event
-    public void addUserTag(UserTagEvent userTagEvent) {
-        // Implementation...
-    }
-
-    // Method to retrieve user profile
-    public UserProfileResult getUserProfile(String cookie, String timeRangeStr, int limit) {
-        // Implementation...
-    }
-
-    // Method to get aggregated data
-    public AggregatesQueryResult getAggregates(String timeRangeStr, Action action, List<Aggregate> aggregates, String origin, String brandId, String categoryId) {
-        // Implementation...
-    }
-
-    // Additional utility methods...
-}
-```
 
 ## Installation and Deployment
 
 1. **Prerequisites**: Ensure all required software (Java, Aerospike, Kafka, HAProxy, etc.) is installed on the corresponding VMs.
 2. **Deployment**: Follow the instructions in the `deploy` directory to set up each component using Ansible scripts.
-3. **Configuration**: Update the configuration files under the `config` directory for Aerospike, Kafka, and the front-end component.
+3. **Configuration**: Update the configuration files under the `config` directory for Aerospike, Kafka, and the front component.
 4. **Run the Platform**: Start the platform services using the provided scripts or Docker Compose files.
 
-## Contributing
-
-Contributions are welcome! Please submit a pull request or open an issue for discussion.
-
-## License
-
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
-
----
-
-Feel free to adjust or expand this README to better suit your needs!

@@ -144,7 +144,7 @@ The front component manages data ingestion, processing for Use Case 1 and 2, and
 
 ### Processor Component
 
-The Processor component consumes user tag events from the Kafka topic, calculates various aggregates UtilizING Kafka Streams' state store, and makes these aggregates available to the Front component through Aerospike. This component is crucial for Use Cases 3, which involve real-time aggregation and data analysis.
+The Processor component consumes user tag events from the Kafka topic, calculates various aggregates utilizing Kafka Streams' state store, and makes these aggregates available to the Front component through Aerospike. This component is crucial for Use Cases 3, which involve real-time aggregation and data analysis.
 The processing logic is written in Java, utilizing Kafka Streams for processing and Aerospike for storage.
 
 

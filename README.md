@@ -4,6 +4,8 @@
 
 This project implements a data collection and analytics platform designed to handle high-volume user event data. The platform captures user interactions such as `VIEW` and `BUY` events and provides efficient storage and querying capabilities using a distributed system architecture.
 
+![Architecture diagram](<arch.PNG>)
+
 ## Features
 
 1. **User Event Collection**: Collects user action data (VIEW and BUY events) including metadata such as time, device type, product information, etc.
@@ -129,6 +131,8 @@ We want to draw a chart showing two metrics over time: the number of BUY actions
 
 
 ## Architecture
+
+![Architecture diagram](<arch.PNG>)
 
 The platform is distributed across 10 virtual machines (VMs) to ensure scalability and resilience. The VMs are organized as follows:
 
